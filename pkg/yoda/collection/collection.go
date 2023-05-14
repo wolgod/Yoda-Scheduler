@@ -1,8 +1,6 @@
 package collection
 
 import (
-	scv "github.com/NJUPT-ISL/SCV/api/v1"
-	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/filter"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/scheduler/framework"
 )
@@ -27,7 +25,7 @@ func (s *Data) Clone() framework.StateData {
 	return c
 }
 
-func CollectMaxValues(state *framework.CycleState, pod *v1.Pod, scvList scv.ScvList) *framework.Status {
+func CollectMaxValues(state *framework.CycleState, pod *v1.Pod, node v1.NodeList) *framework.Status {
 	data := Data{Value: MaxValue{
 		MaxBandwidth:   1,
 		MaxClock:       1,
@@ -36,7 +34,7 @@ func CollectMaxValues(state *framework.CycleState, pod *v1.Pod, scvList scv.ScvL
 		MaxPower:       1,
 		MaxTotalMemory: 1,
 	}}
-	for _, item := range scvList.Items {
+	/*for _, item := range scvList.Items {
 		s := item.DeepCopy()
 		if ok, number := filter.PodFitsNumber(pod, s); ok {
 			isFitsMemory, memory := filter.PodFitsMemory(number, pod, s)
@@ -49,12 +47,12 @@ func CollectMaxValues(state *framework.CycleState, pod *v1.Pod, scvList scv.ScvL
 				}
 			}
 		}
-	}
+	}*/
 	state.Write("Max", &data)
 	return framework.NewStatus(framework.Success, "")
 }
 
-func ProcessMaxValueWithCard(card scv.Card, data *Data) {
+/*func ProcessMaxValueWithCard(card scv.Card, data *Data) {
 	if card.FreeMemory > data.Value.MaxFreeMemory {
 		data.Value.MaxFreeMemory = card.FreeMemory
 	}
@@ -73,4 +71,4 @@ func ProcessMaxValueWithCard(card scv.Card, data *Data) {
 	if card.Power > data.Value.MaxPower {
 		data.Value.MaxPower = card.Power
 	}
-}
+}*/

@@ -2,7 +2,6 @@ package score
 
 import (
 	"errors"
-	scv "github.com/NJUPT-ISL/SCV/api/v1"
 	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/collection"
 	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/filter"
 	v1 "k8s.io/api/core/v1"
@@ -24,7 +23,7 @@ const (
 	AllocateWeight = 3
 )
 
-func CalculateScore(s *scv.Scv, state *framework.CycleState, pod *v1.Pod, info *framework.NodeInfo) (uint64, error) {
+func CalculateScore(s *v1.Node, state *framework.CycleState, pod *v1.Pod, info *framework.NodeInfo) (uint64, error) {
 	d, err := state.Read("Max")
 	if err != nil {
 		return 0, errors.New("Error Get CycleState Info Max Error: " + err.Error())
@@ -33,53 +32,44 @@ func CalculateScore(s *scv.Scv, state *framework.CycleState, pod *v1.Pod, info *
 	if !ok {
 		return 0, errors.New("The Type is not Data ")
 	}
-	return CalculateBasicScore(data.Value, s, pod) + CalculateAllocateScore(info, s) + CalculateActualScore(s), nil
+	return CalculateBasicScore(data.Value, s, pod) + CalculateAllocateScore(info, s) + CalculateActualScore(), nil
 }
 
-func CalculateBasicScore(value collection.MaxValue, scv *scv.Scv, pod *v1.Pod) uint64 {
+func CalculateBasicScore(value collection.MaxValue, node *v1.Node, pod *v1.Pod) uint64 {
 	var cardScore uint64
-	if ok, number := filter.PodFitsNumber(pod, scv); ok {
-		isFitsMemory, memory := filter.PodFitsMemory(number, pod, scv)
-		isFitsClock, clock := filter.PodFitsClock(number, pod, scv)
+	if ok, number := filter.PodFitsNumber(pod, node); ok {
+		isFitsMemory, memory := filter.PodFitsMemory(number, pod, node)
+		isFitsClock, _ := filter.PodFitsClock(number, pod, node)
 		if isFitsClock && isFitsMemory {
-			for _, card := range scv.Status.CardList {
-				if card.FreeMemory >= memory && card.Clock >= clock {
-					cardScore += CalculateCardScore(value, card)
-				}
-			}
+			return memory
 		}
 	}
 	return cardScore
 }
 
-func CalculateCardScore(value collection.MaxValue, card scv.Card) uint64 {
+func CalculateCardScore(value collection.MaxValue) uint64 {
 	var (
-		bandwidth   = card.Bandwidth * 100 / value.MaxBandwidth
-		clock       = card.Clock * 100 / value.MaxBandwidth
-		core        = card.Core * 100 / value.MaxCore
-		power       = card.Power * 100 / value.MaxPower
-		freeMemory  = card.FreeMemory * 100 / value.MaxFreeMemory
-		totalMemory = card.TotalMemory * 100 / value.MaxTotalMemory
+		bandwidth   = value.MaxBandwidth
+		clock       = value.MaxBandwidth
+		core        = value.MaxCore
+		power       = value.MaxPower
+		freeMemory  = value.MaxFreeMemory
+		totalMemory = value.MaxTotalMemory
 	)
 	return uint64(bandwidth*BandwidthWeight+clock*ClockWeight+core*CoreWeight+power*PowerWeight) +
 		freeMemory*FreeMemoryWeight + totalMemory*TotalMemoryWeight
 }
 
-func CalculateActualScore(scv *scv.Scv) uint64 {
-	return (scv.Status.FreeMemorySum * 100 / scv.Status.TotalMemorySum) * ActualWeight
+func CalculateActualScore() uint64 {
+	return ActualWeight
 }
 
-func CalculateAllocateScore(info *framework.NodeInfo, scv *scv.Scv) uint64 {
+func CalculateAllocateScore(info *framework.NodeInfo, scv *v1.Node) uint64 {
 	allocateMemorySum := uint64(0)
 	for _, pod := range info.Pods {
 		if mem, ok := pod.Pod.GetLabels()["scv/memory"]; ok {
 			allocateMemorySum += filter.StrToUint64(mem)
 		}
 	}
-
-	if scv.Status.TotalMemorySum < allocateMemorySum {
-		return 0
-	}
-
-	return (scv.Status.TotalMemorySum - allocateMemorySum) * 100 / scv.Status.TotalMemorySum * AllocateWeight
+	return 0
 }

@@ -5,7 +5,7 @@ metadata:
   namespace: kube-system
 data:
   scheduler-config.yaml: |
-    apiVersion: kubescheduler.config.k8s.io/v1beta1
+    apiVersion: kubescheduler.config.k8s.io/v1beta2
     kind: KubeSchedulerConfiguration
     leaderElection:
       leaderElect: true
@@ -58,7 +58,7 @@ spec:
             name: scheduler-config2
       containers:
         - name: yoda-scheduler
-          image: registry.cn-hangzhou.aliyuncs.com/njupt-isl/yoda-scheduler:2.31
+          image: registry.cn-hangzhou.aliyuncs.com/frankshao/yoda-scheduler:2.33
           imagePullPolicy: Always
           args:
             - yoda-scheduler

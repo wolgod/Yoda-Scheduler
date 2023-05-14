@@ -13,8 +13,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	scv "github.com/NJUPT-ISL/SCV/api/v1"
-
 	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/collection"
 	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/filter"
 	"github.com/NJUPT-ISL/Yoda-Scheduler/pkg/yoda/score"
@@ -49,11 +47,6 @@ func New(_ runtime.Object, h framework.Handle) (framework.Plugin, error) {
 	mgrConfig.QPS = 1000
 	mgrConfig.Burst = 1000
 
-	if err := scv.AddToScheme(scheme); err != nil {
-		klog.Error(err)
-		return nil, err
-	}
-
 	mgr, err := ctrl.NewManager(mgrConfig, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: "",
@@ -85,30 +78,30 @@ func New(_ runtime.Object, h framework.Handle) (framework.Plugin, error) {
 
 func (y *Yoda) Filter(ctx context.Context, _ *framework.CycleState, pod *v1.Pod, node *framework.NodeInfo) *framework.Status {
 	klog.Infof("filter pod: %v, node: %v\n", pod.Name, node.Node().Name)
-	currentScv := &scv.Scv{}
-	err := y.cache.Get(ctx, types.NamespacedName{Name: node.Node().GetName()}, currentScv)
+	currentNode := &v1.Node{}
+	err := y.cache.Get(ctx, types.NamespacedName{Name: node.Node().GetName()}, currentNode)
 	if err != nil {
 		klog.Errorf("Get SCV Error: %v", err)
 		return framework.NewStatus(framework.Unschedulable, "Node:"+node.Node().Name+" "+err.Error())
 	}
-	if ok, number := filter.PodFitsNumber(pod, currentScv); ok {
-		isFitsMemory, _ := filter.PodFitsMemory(number, pod, currentScv)
-		isFitsClock, _ := filter.PodFitsClock(number, pod, currentScv)
+	if ok, number := filter.PodFitsNumber(pod, currentNode); ok {
+		isFitsMemory, _ := filter.PodFitsMemory(number, pod, currentNode)
+		isFitsClock, _ := filter.PodFitsClock(number, pod, currentNode)
 		if isFitsMemory && isFitsClock {
 			return framework.NewStatus(framework.Success, "")
 		}
 	}
-	return framework.NewStatus(framework.Unschedulable, "Node:"+node.Node().Name)
+	return framework.NewStatus(framework.Success, "Node:"+node.Node().Name)
 }
 
 func (y *Yoda) PreScore(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodes []*v1.Node) *framework.Status {
 	klog.Infof("collect info for scheduling pod: %v\n", pod.Name)
-	scvList := scv.ScvList{}
-	if err := y.cache.List(ctx, &scvList); err != nil {
+	nodeList := v1.NodeList{}
+	if err := y.cache.List(ctx, &nodeList); err != nil {
 		klog.Errorf("Get Scv List Error: %v", err)
 		return framework.NewStatus(framework.Error, err.Error())
 	}
-	return collection.CollectMaxValues(state, pod, scvList)
+	return collection.CollectMaxValues(state, pod, nodeList)
 }
 
 func (y *Yoda) Less(podInfo1, podInfo2 *framework.QueuedPodInfo) bool {
@@ -123,14 +116,14 @@ func (y *Yoda) Score(ctx context.Context, state *framework.CycleState, p *v1.Pod
 	}
 
 	// Get Scv Info
-	currentScv := &scv.Scv{}
-	err = y.cache.Get(ctx, types.NamespacedName{Name: nodeName}, currentScv)
+	currentNode := &v1.Node{}
+	err = y.cache.Get(ctx, types.NamespacedName{Name: nodeName}, currentNode)
 	if err != nil {
 		klog.Errorf("Get SCV Error: %v", err)
 		return 0, framework.NewStatus(framework.Success, fmt.Sprintf("Score Node: %v Error: %v", nodeInfo.Node().Name, err))
 	}
 
-	uNodeScore, err := score.CalculateScore(currentScv, state, p, nodeInfo)
+	uNodeScore, err := score.CalculateScore(currentNode, state, p, nodeInfo)
 	if err != nil {
 		klog.Errorf("CalculateScore Error: %v", err)
 		return 0, framework.NewStatus(framework.Error, fmt.Sprintf("Score Node: %v Error: %v", nodeInfo.Node().Name, err))

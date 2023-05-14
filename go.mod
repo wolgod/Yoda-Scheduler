@@ -3,7 +3,6 @@ module github.com/NJUPT-ISL/Yoda-Scheduler
 go 1.15
 
 require (
-	github.com/NJUPT-ISL/SCV v0.0.0-20200901022803-46b36eeed646
 	github.com/spf13/cobra v1.2.1
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5

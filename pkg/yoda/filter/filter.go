@@ -4,26 +4,19 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
-
-	scv "github.com/NJUPT-ISL/SCV/api/v1"
 )
 
-func PodFitsNumber(pod *v1.Pod, scv *scv.Scv) (bool, uint) {
+func PodFitsNumber(pod *v1.Pod, node *v1.Node) (bool, uint) {
 	if number, ok := pod.GetLabels()["scv/number"]; ok {
-		return strToUint(number) <= scv.Status.CardNumber, strToUint(number)
+		return strToUint(number) < 1, strToUint(number)
 	}
-	return scv.Status.CardNumber > 0, 1
+	return true, 1
 }
 
-func PodFitsMemory(number uint, pod *v1.Pod, scv *scv.Scv) (bool, uint64) {
+func PodFitsMemory(number uint, pod *v1.Pod, node *v1.Node) (bool, uint64) {
 	if memory, ok := pod.GetLabels()["scv/memory"]; ok {
 		fitsCard := uint(0)
 		m := StrToUint64(memory)
-		for _, card := range scv.Status.CardList {
-			if CardFitsMemory(m, card) {
-				fitsCard++
-			}
-		}
 		if fitsCard >= number {
 			return true, m
 		}
@@ -32,15 +25,11 @@ func PodFitsMemory(number uint, pod *v1.Pod, scv *scv.Scv) (bool, uint64) {
 	return true, 0
 }
 
-func PodFitsClock(number uint, pod *v1.Pod, scv *scv.Scv) (bool, uint) {
+func PodFitsClock(number uint, pod *v1.Pod, node *v1.Node) (bool, uint) {
 	if clock, ok := pod.GetLabels()["scv/clock"]; ok {
 		fitsCard := uint(0)
 		c := strToUint(clock)
-		for _, card := range scv.Status.CardList {
-			if CardFitsClock(c, card) {
-				fitsCard++
-			}
-		}
+
 		if fitsCard >= number {
 			return true, c
 		}
@@ -49,12 +38,12 @@ func PodFitsClock(number uint, pod *v1.Pod, scv *scv.Scv) (bool, uint) {
 	return true, 0
 }
 
-func CardFitsMemory(memory uint64, card scv.Card) bool {
-	return card.Health == "Healthy" && card.FreeMemory >= memory
+func CardFitsMemory(memory uint64) bool {
+	return true
 }
 
-func CardFitsClock(clock uint, card scv.Card) bool {
-	return card.Health == "Healthy" && card.Clock == clock
+func CardFitsClock(clock uint) bool {
+	return true
 }
 
 func strToUint(str string) uint {
